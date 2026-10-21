@@ -32,7 +32,32 @@ Add legally usable PDFs to `data/documents/`, then click **Build / rebuild index
 
 ## Contributions
 - Eya: RAG & OpenAI integration
-- Mekhalil: corpus & indexing
+- khalil: corpus & indexing
 - Yosr: evaluation & optimization
 - Mohamed: app & deployment
 - Shared: corpus approval, final report, testing and demo
+
+## Current Progress
+
+### Milestone 1 — Local RAG Prototype (Completed)
+
+- GitHub repository created
+- Python environment configured
+- OpenAI API integrated
+- PDF extraction and chunking tested
+- Search index successfully built
+- First source-grounded question answered with citation
+
+Test question:
+"What are the five requirements for a good corpus?"
+
+Result:
+Correct answer citing project2-librarian.pdf, page 5.
+
+### Next Milestone
+
+- Choose and obtain approval for a real document corpus
+- Index the approved documents
+- Create verified evaluation questions
+- Improve hybrid retrieval and add reranking
+
