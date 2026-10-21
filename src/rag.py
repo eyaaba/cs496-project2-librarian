@@ -32,27 +32,72 @@ def chunk_text(text: str, max_words: int = 260, overlap: int = 45) -> list[str]:
 def load_corpus() -> list[dict]:
     DOCS_PATH.mkdir(parents=True, exist_ok=True)
     out = []
-    for p in sorted(DOCS_PATH.iterdir()):
+
+    for p in sorted(DOCS_PATH.rglob('*')):
+        if not p.is_file():
+            continue
+
         if p.suffix.lower() == '.pdf':
             with fitz.open(p) as doc:
-                pages = [(n + 1, page.get_text('text')) for n, page in enumerate(doc)]
+                pages = [
+                    (n + 1, page.get_text('text'))
+                    for n, page in enumerate(doc)
+                ]
+
         elif p.suffix.lower() in ('.txt', '.md'):
-            pages = [(1, p.read_text(encoding='utf-8'))]
-        else: continue
+            pages = [(1, p.read_text(encoding='utf-8-sig'))]
+
+        else:
+            continue
+
+        # Preserve the relative path for unique source identifiers
+        relative_path = p.relative_to(DOCS_PATH).as_posix()
+        source_id = relative_path.replace('/', '__')
+
         for page, txt in pages:
             for j, chunk in enumerate(chunk_text(txt)):
-                if len(chunk.strip()) < 30: continue
-                out.append({'id':f'{p.stem}-p{page}-c{j}', 'source':p.name, 'page':page, 'text':chunk})
+                if len(chunk.strip()) < 30:
+                    continue
+
+                out.append({
+                    'id': f'{source_id}-p{page}-c{j}',
+                    'source': relative_path,
+                    'page': page,
+                    'text': chunk
+                })
+
     return out
 
 def embed_texts(texts: list[str]) -> list[list[float]]:
     c = client()
-    model = os.getenv('OPENAI_EMBED_MODEL', 'text-embedding-3-small')
+    model = os.getenv("OPENAI_EMBED_MODEL", "text-embedding-3-small")
+
+    cache_dir = Path("data/embedding_cache")
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
     results = []
+
     for offset in range(0, len(texts), 80):
-        batch = texts[offset:offset + 80]
-        result = c.embeddings.create(model=model, input=batch)
-        results.extend([item.embedding for item in sorted(result.data, key=lambda x: x.index)])
+        batch_number = offset // 80
+        cache_file = cache_dir / f"batch_{batch_number}.json"
+
+        if cache_file.exists():
+            vectors = json.loads(cache_file.read_text(encoding="utf-8"))
+        else:
+            batch = texts[offset:offset + 80]
+            response = c.embeddings.create(
+                model=model,
+                input=batch
+            )
+            vectors = [
+                item.embedding
+                for item in sorted(response.data, key=lambda x: x.index)
+            ]
+            cache_file.write_text(json.dumps(vectors), encoding="utf-8")
+
+        results.extend(vectors)
+        print(f"Embedded {min(offset + 80, len(texts))}/{len(texts)} chunks")
+
     return results
 
 def build_index() -> int:
