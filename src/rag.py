@@ -1,4 +1,3 @@
-"""Minimal inspectable RAG baseline. Replace/add reranker and hybrid fusion for final project."""
 from __future__ import annotations
 import json
 import os
