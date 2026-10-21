@@ -1,63 +1,75 @@
 # CS496 — Project 2: The Librarian
 
-**Status:** WIP starter prototype (NOT a completed submission).
+A Retrieval-Augmented Generation (RAG) application that answers questions using information from a collection of documents.
 
-## What works in this baseline
-- Parse PDFs, TXT, Markdown into page-aware chunks
-- OpenAI embedding and persistent JSON index
-- BM25, vector and simple reciprocal-rank-fusion hybrid retrieval
-- Grounded OpenAI generation with passage IDs
-- Streamlit interface to index documents and ask questions
 
-## Setup (Python 3.10+)
+## Team Members
+
+- Eya Ben Ammar
+- khalil Ben Omrane
+- Yosr Maalej
+- Mohamed Ben HajSalah
+
+## Project Overview
+
+Our project uses RAG to retrieve relevant information from documents and generate answers using the OpenAI API.
+
+We selected the official Python 3.14 documentation as our document collection. The application is designed to help students find information about Python programming.
+
+## Technologies
+
+- Python
+- OpenAI API
+- Streamlit
+- PyMuPDF
+- BM25
+- NumPy
+
+## Installation
+
+Install the required packages:
+
 ```bash
-python -m pip install -r requirements.txt
+pip install -r requirements.txt
 ```
-Copy `.env.example` to `.env` and add the professor-authorized `OPENAI_API_KEY`. Never commit `.env` or paste secrets into Bloomi/GitHub. Check allowable models and credits first.
 
-## Run
+Create a `.env` file containing the OpenAI API key:
+
+```env
+OPENAI_API_KEY=your_api_key
+```
+
+## Running the Application
+
 ```bash
 streamlit run app.py
 ```
-Add legally usable PDFs to `data/documents/`, then click **Build / rebuild index** in the sidebar (requires API credit). Ask a question.
 
-## IMPORTANT limitations / next steps
-- Get professor approval for a REAL hundreds-of-pages corpus; collect real user feedback and 100+ verified Q&A with supporting evidence.
-- No reranker yet; no metadata filtering, refusal threshold or question rewrite yet.
-- Citations are prompt-instructed, not independently verified; add citation validation and faithfulness eval.
-- Index is a JSON file (not a production vector DB); change for large corpus and justify.
-- No deployment, held-out evaluation, ablation numbers, optimization or cost estimates yet.
-- Hybrid fusion is provisional baseline, not experimentally tuned.
-- Keep confidential docs out of public git. Verify data permissions before upload to any cloud/API.
-
-## Contributions
-- Eya: RAG & OpenAI integration
-- khalil: corpus & indexing
-- Yosr: evaluation & optimization
-- Mohamed: app & deployment
-- Shared: corpus approval, final report, testing and demo
+Open the local Streamlit URL, build the document index, and ask a question.
 
 ## Current Progress
 
-### Milestone 1 — Local RAG Prototype (Completed)
+- GitHub repository and Python environment configured
+- Basic RAG application implemented and tested
+- OpenAI API connected
+- Document extraction and chunking implemented
+- 528 Python documentation files collected
+- 8,954 document chunks generated
+- Initial embedding test completed successfully
 
-- GitHub repository created
-- Python environment configured
-- OpenAI API integrated
-- PDF extraction and chunking tested
-- Search index successfully built
-- First source-grounded question answered with citation
+## Remaining Work
 
-Test question:
-"What are the five requirements for a good corpus?"
+- Complete indexing of the Python documentation
+- Improve document retrieval and add reranking
+- Prepare the evaluation dataset
+- Measure accuracy and performance
+- Optimize and deploy the application
 
-Result:
-Correct answer citing project2-librarian.pdf, page 5.
+## Contributions
 
-### Next Milestone
-
-- Choose and obtain approval for a real document corpus
-- Index the approved documents
-- Create verified evaluation questions
-- Improve hybrid retrieval and add reranking
-
+| Member | Responsibility |
+|---|---|
+| Eya | RAG pipeline and OpenAI integration |
+| Mekhalil | Document processing and indexing |
+| Yosr | Evaluation and optimization |
+| Mohamed | Application and deployment |
