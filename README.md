@@ -70,6 +70,6 @@ Open the local Streamlit URL, build the document index, and ask a question.
 | Member | Responsibility |
 |---|---|
 | Eya | RAG pipeline and OpenAI integration |
-| Mekhalil | Document processing and indexing |
+| khalil | Document processing and indexing |
 | Yosr | Evaluation and optimization |
 | Mohamed | Application and deployment |
