@@ -49,21 +49,22 @@ Open the local Streamlit URL, build the document index, and ask a question.
 
 ## Current Progress
 
-- GitHub repository and Python environment configured
-- Basic RAG application implemented and tested
-- OpenAI API connected
-- Document extraction and chunking implemented
-- 528 Python documentation files collected
-- 8,954 document chunks generated
-- Initial embedding test completed successfully
+- Basic RAG application implemented using Streamlit and OpenAI
+- Official Python 3.14 documentation collected (528 files)
+- 8,954 document chunks indexed using OpenAI embeddings
+- BM25, vector search and hybrid retrieval implemented
+- Embedding cache and persistent index implemented
+- Local retrieval and question-answering tests completed
 
 ## Remaining Work
 
-- Complete indexing of the Python documentation
-- Improve document retrieval and add reranking
-- Prepare the evaluation dataset
-- Measure accuracy and performance
-- Optimize and deploy the application
+- Add reranking and improve retrieval performance
+- Validate citations and unsupported-question handling
+- Build the 100+ question evaluation dataset
+- Run retrieval and generation evaluations
+- Optimize cost and latency
+- Deploy the application and collect user feedback
+- Complete the final report
 
 ## Contributions
 
