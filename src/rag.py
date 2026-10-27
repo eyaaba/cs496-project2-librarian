@@ -67,7 +67,13 @@ def load_corpus() -> list[dict]:
 
     return out
 
+
 def embed_texts(texts: list[str]) -> list[list[float]]:
+    import hashlib
+
+    if not texts:
+        return []
+
     c = client()
     model = os.getenv("OPENAI_EMBED_MODEL", "text-embedding-3-small")
 
@@ -77,36 +83,89 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
     results = []
 
     for offset in range(0, len(texts), 80):
-        batch_number = offset // 80
-        cache_file = cache_dir / f"batch_{batch_number}.json"
+        batch = texts[offset:offset + 80]
+
+        payload = json.dumps(
+            {"model": model, "texts": batch},
+            ensure_ascii=False
+        )
+
+        batch_hash = hashlib.sha256(
+            payload.encode("utf-8")
+        ).hexdigest()
+
+        cache_file = cache_dir / f"{batch_hash}.json"
 
         if cache_file.exists():
-            vectors = json.loads(cache_file.read_text(encoding="utf-8"))
+            vectors = json.loads(
+                cache_file.read_text(encoding="utf-8")
+            )
         else:
-            batch = texts[offset:offset + 80]
             response = c.embeddings.create(
                 model=model,
                 input=batch
             )
+
             vectors = [
                 item.embedding
-                for item in sorted(response.data, key=lambda x: x.index)
+                for item in sorted(
+                    response.data,
+                    key=lambda x: x.index
+                )
             ]
-            cache_file.write_text(json.dumps(vectors), encoding="utf-8")
+
+            if len(vectors) != len(batch):
+                raise RuntimeError("Incorrect embedding count")
+
+            cache_file.write_text(
+                json.dumps(vectors),
+                encoding="utf-8"
+            )
+
+        if len(vectors) != len(batch):
+            raise RuntimeError("Embedding cache size mismatch")
 
         results.extend(vectors)
-        print(f"Embedded {min(offset + 80, len(texts))}/{len(texts)} chunks")
+
+        print(
+            f"Processed {min(offset + 80, len(texts))}/{len(texts)} chunks"
+        )
 
     return results
 
+
+
 def build_index() -> int:
     chunks = load_corpus()
-    if not chunks: raise RuntimeError('Add authorized PDFs/TXT/MD files to data/documents/')
-    vectors = embed_texts([c['text'] for c in chunks])
-    for c, vec in zip(chunks, vectors): c['vector'] = vec
+
+    if not chunks:
+        raise RuntimeError(
+            "No documents found in data/documents/"
+        )
+
+    print(f"Indexing {len(chunks)} chunks...")
+
+    vectors = embed_texts([c["text"] for c in chunks])
+
+    if len(vectors) != len(chunks):
+        raise RuntimeError("Embedding count mismatch")
+
+    for chunk, vector in zip(chunks, vectors):
+        chunk["vector"] = vector
+
     INDEX_PATH.parent.mkdir(parents=True, exist_ok=True)
-    INDEX_PATH.write_text(json.dumps(chunks), encoding='utf-8')
+
+    temporary_path = INDEX_PATH.with_suffix(".tmp")
+    temporary_path.write_text(
+        json.dumps(chunks),
+        encoding="utf-8"
+    )
+
+    temporary_path.replace(INDEX_PATH)
+
+    print("Index saved successfully.")
     return len(chunks)
+
 
 def retrieve(query: str, k: int = 5, mode: str = 'hybrid') -> list[dict]:
     if not INDEX_PATH.exists(): raise RuntimeError('Build the index first')

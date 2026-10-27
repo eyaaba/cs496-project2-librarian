@@ -4,6 +4,7 @@ __pycache__/
 *.pyc
 .streamlit/secrets.toml
 data/index.json
+data/embedding_cache/
 data/documents/*
 !data/documents/.gitkeep
 project_docs/
