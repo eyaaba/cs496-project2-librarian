@@ -14,7 +14,7 @@ with st.sidebar:
             st.success(f'Indexed {count} passages')
         except Exception as e: st.error(str(e))
     st.write('Status:', 'Ready' if INDEX_PATH.exists() else 'Not indexed')
-    mode = st.selectbox('Retrieval mode', ['hybrid','bm25','vector'])
+    mode = st.selectbox('Retrieval mode', ['hybrid', 'hybrid_rerank','bm25','vector'])
 question = st.text_input('Ask a question about your documents')
 if st.button('Ask') and question.strip():
     try:
