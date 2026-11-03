@@ -259,16 +259,20 @@ def retrieve_reranked(
     return rerank(query, candidates, k=k)
 
 
+def extract_citations(answer_text: str) -> list[str]:
+    return re.findall(
+        r"\[(python-3\.14\.0-docs-text[^\[\]\s]*)\]",
+        answer_text
+    )
+
+
 def validate_citations(
     answer_text: str,
     passages: list[dict]
 ) -> tuple[bool, list[str]]:
-    valid_ids = {p["id"] for p in passages}
 
-    cited_ids = re.findall(
-        r"\[([^\[\]]+)\]",
-        answer_text
-    )
+    valid_ids = {p["id"] for p in passages}
+    cited_ids = extract_citations(answer_text)
 
     invalid_ids = [
         citation
@@ -277,7 +281,6 @@ def validate_citations(
     ]
 
     return len(invalid_ids) == 0, invalid_ids
-
 
 def repair_citations(answer_text: str, passages: list[dict]) -> str:
     valid_ids = [p["id"] for p in passages]
@@ -365,8 +368,8 @@ def answer(question: str, mode: str = "hybrid") -> tuple[str, list[dict]]:
             )
 
 
-    cited_ids = re.findall(r"\[([^\[\]]+)\]", answer_text)
 
+    cited_ids = extract_citations(answer_text)
     if not cited_ids and "I don't know based on the provided documents" not in answer_text:
         return (
             "I couldn't generate an answer with verifiable citations.",

@@ -1,92 +1,207 @@
-# CS496 — Project 2: The Librarian
+# The Librarian — CS496 Project 2
 
-A Retrieval-Augmented Generation (RAG) application that answers questions using information retrieved from documents.
+**Retrieval-Augmented Generation for Python Documentation**
 
-## Team Members
+The Librarian is a Retrieval-Augmented Generation (RAG) application that answers Python programming questions using relevant passages from the official Python 3.14 documentation. The system combines lexical and semantic retrieval, optional reranking, and source-grounded answer generation.
+
+## Team
 
 - Eya Ben Ammar
 - Khalil Ben Omrane
 - Yosr Maalej
-- Mohamed Ben HajSalah
+- Mohamed Ben Haj Salah
 
-## Project Overview
 
-The Librarian is a RAG application that retrieves relevant information from documents and generates answers using the OpenAI API.
 
-Our selected corpus is the official Python 3.14 documentation. The application aims to help students find reliable answers to Python programming questions, with references to the original documentation.
+## Live Application
 
-## Technologies
+**[The Librarian — Streamlit](https://the-librarian-cs496-project2.streamlit.app/)**
 
-- Python
-- OpenAI API
+The application is hosted on Streamlit Community Cloud. OpenAI-powered question answering requires a configured, authorized API key.
+
+**[GitHub Repository](https://github.com/eyaaba/cs496-project2-librarian)**
+
+## Corpus
+
+The project uses the official Python 3.14.0 documentation, available at https://docs.python.org/3.14/.
+
+| Property | Value |
+|---|---|
+| Source | Official Python 3.14.0 documentation |
+| Documents | 522 |
+| Indexed passages | 8,772 |
+| Chunk size | 260 words |
+| Chunk overlap | 45 words |
+| Embedding model | `text-embedding-3-small` |
+| Embedding dimensions | 1,536 |
+| Index format | Persistent JSON |
+
+The documentation was selected to support students and developers looking for answers about Python syntax, language features, and standard-library functionality.
+
+## System Architecture
+
+The system consists of two pipelines.
+
+### Document Processing
+
+1. Download Python documentation.
+2. Extract and load document text with source metadata.
+3. Split documents into overlapping passages.
+4. Generate embeddings using OpenAI.
+5. Cache generated embeddings to avoid repeated processing.
+6. Store passages, metadata, and embeddings in a persistent index.
+
+### Question Answering
+
+1. Receive a question through Streamlit.
+2. Rewrite the query when appropriate.
+3. Retrieve supporting documentation passages.
+4. Optionally rerank the retrieved candidates.
+5. Generate an answer using GPT-4o-mini and retrieved context.
+6. Validate source citation identifiers.
+7. Display the answer alongside the retrieved evidence.
+
+The application supports four retrieval configurations:
+
+| Mode | Description |
+|---|---|
+| BM25 | Keyword-based retrieval |
+| Vector | Embedding similarity search |
+| Hybrid | BM25 + vector search using Reciprocal Rank Fusion |
+| Hybrid + Cross-Encoder | Hybrid retrieval followed by neural reranking |
+
+**Hybrid retrieval is the default configuration.**
+
+The optional Cross-Encoder uses `cross-encoder/ms-marco-MiniLM-L6-v2`.
+
+## Technology Stack
+
+- Python 3.12
 - Streamlit
-- PyMuPDF
-- BM25
+- OpenAI API
+- GPT-4o-mini
+- OpenAI `text-embedding-3-small`
+- Rank-BM25
 - NumPy
+- Sentence Transformers
+- PyTorch
+- PyMuPDF
 
 ## Installation
 
-**1. Install the dependencies**
+### 1. Clone the Repository
 
 ```bash
-pip install -r requirements.txt
+git clone https://github.com/eyaaba/cs496-project2-librarian.git
+cd cs496-project2-librarian
 ```
 
-**2. Configure the OpenAI API**
+### 2. Install Dependencies
 
-Create a `.env` file in the project root:
+```bash
+python -m pip install -r requirements.txt
+```
+
+### 3. Configure the API Key
+
+Create a `.env` file in the project directory:
 
 ```env
-OPENAI_API_KEY=your_api_key
+OPENAI_API_KEY=your_authorized_api_key
 ```
 
-**3. Download the corpus**
+The `.env` file is excluded from version control.
+
+### 4. Run the Application
+
+```bash
+python -m streamlit run app.py
+```
+
+The application automatically downloads the prebuilt search index when `data/index.json` is absent. The downloaded file is verified using SHA-256.
+
+The prebuilt index is available under [GitHub Releases — v1.0-index](https://github.com/eyaaba/cs496-project2-librarian/releases/tag/v1.0-index).
+
+### Reproducing the Corpus
 
 ```bash
 python download_corpus.py
 ```
 
-This downloads the official Python 3.14.0 documentation into `data/documents/`.
+This downloads the Python documentation used by the indexing pipeline. Index generation and embedding utilities are implemented in `src/rag.py`.
 
-## Running the Application
+Regenerating embeddings requires an authorized OpenAI API key.
 
-Start the Streamlit application:
+## Evaluation
 
-```bash
-streamlit run app.py
-```
+The retrieval benchmark uses **100 question-answer examples**, divided into 20 development questions and 80 held-out test questions.
 
-Open the local Streamlit URL and select **Build / rebuild index** to generate the document embeddings and create the searchable index.
+### Retrieval Ablation
 
-Once indexing is complete, enter a question to retrieve information from the Python documentation.
+| Method | Hit@5 |
+|---|---:|
+| BM25 | 76% |
+| Vector | 62% |
+| Hybrid | 84% |
+| Hybrid + Cross-Encoder | 84% |
 
-An authorized OpenAI API key is required for indexing and answer generation.
+Hybrid retrieval achieved the highest aggregate Hit@5, matching the reranked configuration without requiring Cross-Encoder inference.
 
-## Current Progress
+### Optimization Results
 
-- RAG application implemented with Streamlit and OpenAI
-- Official Python 3.14 documentation collected (528 files)
-- 8,954 document chunks generated and indexed
-- OpenAI embeddings generated (1,536 dimensions)
-- BM25, vector search, and hybrid retrieval implemented
-- Embedding caching and persistent index implemented
-- Corpus download script added for reproducibility
-- Local retrieval and question-answering tests completed
+The optimization experiment compared Hybrid + Cross-Encoder against Hybrid alone on the same 80 held-out test questions.
 
-## Remaining Work
+| Metric | Hybrid + Cross-Encoder | Hybrid |
+|---|---:|---:|
+| Hit@5 | 86.25% | 86.25% |
+| Correct retrieval hits | 69/80 | 69/80 |
+| Median retrieval latency | Approximately 3.2 s | 50.0 ms |
+| p95 retrieval latency | Approximately 3–4 s | 64.5 ms |
 
-- Implement reranking and improve retrieval performance
-- Validate citations and handle unsupported questions
-- Prepare 100+ verified question-answer pairs
-- Evaluate retrieval and generation quality
-- Measure and optimize cost and latency
-- Deploy the application and collect user feedback
-- Complete the final report and documentation
+Removing the reranking stage reduced measured warm-cache p95 retrieval latency by approximately **98%**, with **0 percentage-point change in Hit@5**.
 
-## Contributions
+These measurements concern the retrieval stage, not full end-to-end answer generation.
 
-| Member | Responsibility |
+### Answer Generation Evaluation
+
+An initial answer-generation review covered 10 supported questions and five unsupported questions.
+
+- 9 of 10 supported-question runs aligned with their reference expectations.
+- One supported-question run encountered a citation-validation failure.
+- All five unsupported questions produced the intended abstention response.
+
+The citation parsing issue was subsequently corrected in the local implementation.
+
+This sample-based review is separate from the 100-question retrieval benchmark.
+
+## Evaluation Files
+
+| File | Purpose |
 |---|---|
-| Eya | RAG pipeline and OpenAI integration |
-| Khalil | Document processing and indexing |
-| Yosr | Evaluation and optimization
+| `eval/questions.jsonl` | Evaluation dataset |
+| `eval/validate_dataset.py` | Dataset validation |
+| `eval/compare_retrieval.py` | Retrieval ablation |
+| `eval/benchmark_optimization.py` | Before-and-after latency comparison |
+| `eval/evaluate_answers.py` | Answer-generation review |
+
+## Documentation
+
+| File | Description |
+|---|---|
+| `design.md` | Architecture, corpus, and design decisions |
+| `optimisation.md` | Optimization experiment and measurements |
+| `postmortem.md` | Technical failures, corrections, and lessons learned |
+| `eval/task4_results.md` | Retrieval implementation and evaluation notes |
+
+## Limitations
+
+- Hit@5 measures supporting-passage retrieval rather than complete answer correctness.
+- Citation-ID validation does not independently establish factual faithfulness.
+- Cross-Encoder reranking increases CPU inference latency.
+- Large JSON indexes increase memory and startup requirements.
+- Technical documentation containing complex tables, code blocks, or cross-references can introduce retrieval errors.
+- OpenAI-powered answering requires authorized API access.
+
+## Attribution
+
+The documentation corpus is derived from the official Python documentation. Copyright and licensing requirements of the Python Software Foundation and other applicable contributors must be respected.
