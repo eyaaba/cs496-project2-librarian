@@ -1,51 +1,78 @@
 
 import json
+import time
 from pathlib import Path
 
 from src.rag import retrieve, retrieve_reranked
 
-path = Path("eval/questions.jsonl")
-
 questions = [
     json.loads(line)
-    for line in path.read_text(encoding="utf-8").splitlines()
-    if line.strip() and json.loads(line)["answerable"]
+    for line in Path("eval/questions.jsonl").read_text(
+        encoding="utf-8"
+    ).splitlines()
+    if line.strip()
 ]
 
 modes = ["bm25", "vector", "hybrid", "hybrid_rerank"]
-results = {}
+
+print(f"Evaluating {len(questions)} questions...\n")
 
 for mode in modes:
-    hits = 0
+    hits = {"dev": 0, "test": 0}
+    totals = {"dev": 0, "test": 0}
+    durations = []
 
-    print(f"\n=== {mode.upper()} ===")
+    for question in questions:
+        start = time.perf_counter()
 
-    for item in questions:
         if mode == "hybrid_rerank":
             passages = retrieve_reranked(
-                item["question"],
-                k=5,
-                candidate_k=20
+                question["question"], k=5, candidate_k=20
             )
         else:
             passages = retrieve(
-                item["question"],
-                k=5,
-                mode=mode
+                question["question"], k=5, mode=mode
             )
 
-        retrieved_ids = {p["id"] for p in passages}
-        gold_ids = set(item["gold_chunk_ids"])
+        elapsed_ms = (
+            time.perf_counter() - start
+        ) * 1000
 
-        hit = bool(retrieved_ids & gold_ids)
-        hits += int(hit)
+        durations.append(elapsed_ms)
 
-        print(f"{item['id']}: {'HIT' if hit else 'MISS'}")
+        split = question["split"]
+        totals[split] += 1
 
-    results[mode] = hits / len(questions)
-    print(f"Hit@5: {hits}/{len(questions)} = {results[mode]:.1%}")
+        found = bool(
+            set(p["id"] for p in passages)
+            & set(question["gold_chunk_ids"])
+        )
 
-print("\n=== SUMMARY ===")
+        hits[split] += int(found)
 
-for mode, score in results.items():
-    print(f"{mode:15} {score:.1%}")
+    total_hits = sum(hits.values())
+    total_questions = sum(totals.values())
+
+    durations.sort()
+    n = len(durations)
+
+    p50 = durations[int(0.50 * (n - 1))]
+    p95 = durations[int(0.95 * (n - 1))]
+
+    print(f"MODE: {mode}")
+    print(
+        f"  Overall Hit@5: "
+        f"{total_hits}/{total_questions} "
+        f"= {total_hits / total_questions:.1%}"
+    )
+    print(
+        f"  Dev Hit@5: "
+        f"{hits['dev']}/{totals['dev']}"
+    )
+    print(
+        f"  Test Hit@5: "
+        f"{hits['test']}/{totals['test']}"
+    )
+    print(f"  p50 latency: {p50:.1f} ms")
+    print(f"  p95 latency: {p95:.1f} ms")
+    print()
