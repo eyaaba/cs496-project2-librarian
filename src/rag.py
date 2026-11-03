@@ -258,11 +258,71 @@ def retrieve_reranked(
 
     return rerank(query, candidates, k=k)
 
+
+def validate_citations(
+    answer_text: str,
+    passages: list[dict]
+) -> tuple[bool, list[str]]:
+    valid_ids = {p["id"] for p in passages}
+
+    cited_ids = re.findall(
+        r"\[([^\[\]]+)\]",
+        answer_text
+    )
+
+    invalid_ids = [
+        citation
+        for citation in cited_ids
+        if citation not in valid_ids
+    ]
+
+    return len(invalid_ids) == 0, invalid_ids
+
+
+def repair_citations(answer_text: str, passages: list[dict]) -> str:
+    valid_ids = [p["id"] for p in passages]
+
+    response = client().chat.completions.create(
+        model=os.getenv("OPENAI_CHAT_MODEL", "gpt-4o-mini"),
+        temperature=0,
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are a citation editor. Correct the citations "
+                    "in the answer using ONLY the allowed passage IDs. "
+                    "Do not invent IDs. Do not change the factual content. "
+                    "If a claim has no supporting passage, remove that claim. "
+                    "Return the corrected answer only."
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"ALLOWED PASSAGE IDS:\n{valid_ids}\n\n"
+                    f"PASSAGES:\n"
+                    + "\n\n".join(
+                        f"[{p['id']}]\n{p['text']}" for p in passages
+                    )
+                    + f"\n\nANSWER TO CORRECT:\n{answer_text}"
+                ),
+            },
+        ],
+    )
+
+    return (response.choices[0].message.content or "").strip()
+
+
 def answer(question: str, mode: str = "hybrid") -> tuple[str, list[dict]]:
+    search_question = rewrite_question(question)
+
     if mode == "hybrid_rerank":
-        passages = retrieve_reranked(question, k=5, candidate_k=20)
+        passages = retrieve_reranked(
+            search_question, k=5, candidate_k=20
+        )
     else:
-        passages = retrieve(question, mode=mode)
+        passages = retrieve(search_question, mode=mode)
+
     context = "\n\n".join(
         f"[{p['id']}] Source: {p['source']} page {p['page']}\n{p['text']}"
         for p in passages
@@ -283,4 +343,63 @@ def answer(question: str, mode: str = "hybrid") -> tuple[str, list[dict]]:
         temperature=0,
     )
 
-    return response.choices[0].message.content or "", passages
+    
+    answer_text = response.choices[0].message.content or ""
+
+    is_valid, invalid_ids = validate_citations(answer_text, passages)
+
+    
+    if not is_valid:
+        print("Invalid citations detected:", invalid_ids)
+
+        answer_text = repair_citations(answer_text, passages)
+
+        is_valid, invalid_ids = validate_citations(
+            answer_text, passages
+        )
+
+        if not is_valid:
+            return (
+                "I couldn't verify the source citations for this answer.",
+                passages,
+            )
+
+
+    cited_ids = re.findall(r"\[([^\[\]]+)\]", answer_text)
+
+    if not cited_ids and "I don't know based on the provided documents" not in answer_text:
+        return (
+            "I couldn't generate an answer with verifiable citations.",
+            passages,
+        )
+
+    return answer_text, passages
+
+
+def rewrite_question(question: str) -> str:
+    question = question.strip()
+
+    if not question:
+        return question
+
+    response = client().chat.completions.create(
+        model="gpt-4o-mini",
+        temperature=0,
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "Rewrite the user's question into a clear, "
+                    "self-contained search query for official Python "
+                    "documentation. Preserve the original meaning. "
+                    "Do not answer the question or invent missing "
+                    "context. If the question is already clear, "
+                    "return it unchanged. Return only the query."
+                ),
+            },
+            {"role": "user", "content": question},
+        ],
+    )
+
+    rewritten = (response.choices[0].message.content or "").strip()
+    return rewritten or question
